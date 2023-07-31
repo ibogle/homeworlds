@@ -117,7 +117,7 @@ class homeworlds_board:
             self.hw_mask[0]          = self.hw_mask[0]          | star1_pos[0] | star2_pos[0]
             self.player_mask[player] = self.player_mask[player] | star1_pos[0] | star2_pos[0] | ship_pos[0]
             self.star_mask[0]        = self.star_mask[0]        | star1_pos[0] | star2_pos[0]
-            self.star_positions.append(star1_pos)
+            self.star_positions.append(star1_pos | star2_pos)
             self.at_star_mask[len(self.star_positions)-1] = ship_pos[0]
             return True
         else:
@@ -140,4 +140,19 @@ print("player 0 choosing homeworld")
 homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
 print("player 1 choosing homeworld")
 homeworlds.choose_homeworld(1, (Size.One, Color.Blue), (Size.One, Color.Blue), (Size.One, Color.Blue))
-print(format(homeworlds.bank_mask[0],"02x"))
+homeworlds.choose_homeworld(1, (Size.Two, Color.Blue), (Size.Three, Color.Green), (Size.Three, Color.Yellow))
+
+print("bank_mask\t"+format(homeworlds.bank_mask[0],"064b"))
+print("Red\t\t"+format(homeworlds.color_mask[0][0],"064b"))
+print("Green\t\t"+format(homeworlds.color_mask[1][0],"064b"))
+print("Yellow\t\t"+format(homeworlds.color_mask[2][0],"064b"))
+print("Blue\t\t"+format(homeworlds.color_mask[3][0],"064b"))
+print("Size 1\t\t"+format(homeworlds.size_mask[0][0],"064b"))
+print("Size 2\t\t"+format(homeworlds.size_mask[1][0],"064b"))
+print("Size 3\t\t"+format(homeworlds.size_mask[2][0],"064b"))
+print("Player 1\t"+format(homeworlds.player_mask[0][0],"064b"))
+print("Player 2\t"+format(homeworlds.player_mask[1][0],"064b"))
+print("Homeworld\t"+format(homeworlds.hw_mask[0],"064b"))
+print("Star mask\t"+format(homeworlds.star_mask[0],"064b"))
+for i in range(len(homeworlds.star_positions)):
+    print(f"At Star {i}\t"+format(homeworlds.at_star_mask[i][0],"064b") + " \nStar pos = \t"+format(homeworlds.star_positions[i][0],"064b"))
