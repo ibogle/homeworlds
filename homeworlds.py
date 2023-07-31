@@ -62,7 +62,10 @@ class homeworlds_board:
         move_from_bank_to_board(size2, color2, position+1)
         return True
 
-
+    def count_ones_in_uint64(self,n):#0x0000000000000000              0x0000000000000000
+        uCount = n - ((n >> 1) & 0x0333333333333333) - ((n>>2) & 0x0111111111111111)
+        return ((uCount + (uCount>>3)) & 0x0307070707070707) % 63
+    
     def move_from_board_to_board(size, color, old_pos, new_pos):
         #execute the scooch
         return True
@@ -95,6 +98,6 @@ class homeworlds_board:
             # the pieces aren't in the bank, somehow?
             return False
 
-
-        
 homeworlds = homeworlds_board()
+
+print(homeworlds.count_ones_in_uint64(homeworlds.board[0]))
