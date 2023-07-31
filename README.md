@@ -34,7 +34,7 @@ AI notes:
     - check if blue exists at a star (more prohibitive), enumerate ships at that star, and ships from the bank that they can transform into. (on the order of \#ships)
     
   - napkin math memory usage for avg-case ship action enumeration: 10 + 50 + 18 + 18 = 96. size of board representation = 2\*64\*36 = 4.5 KB per board. Memory footprint for ship enumeration: 96 * 4.5 KB = 432 KB. The board state (or some representation of the move taken) needs to be preserved for each turn, so 4.5 KB * \# turns, which means I can store about 14M turns in RAM alone, assuming I add the convenience star masks to the board representation.
-  - Action enumeration is embarassingly parallel if it is parallelized at the ship level. Each action is taken independently, so I can ignore the other actions that are being tried concurrently.  
+  - Action enumeration is embarassingly parallel if it is parallelized at the ship level. Each action is taken independently, so I can ignore the other actions that are being tried concurrently. For move actions, copy the set of stars from one ship and apply them to the other ships for valid stars to travel to.
 
   - enumerating all possible sacrifice actions is the same as enumerating ship actions of a certain type, without the more prohibitive restrictions, except in the case of red.
     This means that each sacrifice action can be done by some number of sequential moves, checking a less restrictive version of the move each time. I.E.:
