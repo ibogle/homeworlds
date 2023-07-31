@@ -35,21 +35,36 @@ class homeworlds_board:
         self.players = 2
         self.player_turn = 1
         self.first_turn = True
+        self.star_positions = []
 
     #returns true if a piece of size and color is present in the bank
     def check_bank_for_piece(size,color):
         return bool(board[0]&bank_mask[0]&size_mask[size][0]&color_mask[color][0])
 
-    def move_from_bank_to_board(size, color, position):
+    def move_from_bank_to_board(size, color, position, is_star=False, ship_at_star=-1):
         #zero out the piece in the bank
 
         #place that piece in position
+        #if is_star is true, update the star positions list, and the relevant star_mask entry
         return True #this should never fail, I check before I do it (famous last words)
 
-    def move_from_board_to_bank(size, color, position):
+    def move_from_board_to_bank(size, color, position, is_star=False, ship_at_star=-1):
+        #zero out the piece in position
+        #if is_star is true, zero out the star mask and remove the entry from star positions
+
+        #place the piece back in the bank, update relevant masks
         return True #this should never fail, I check before I do it (famous last words)
+
+    def place_homeworld_star(size1, color1, size2, color2, position):
+        # This is needed to avoid creating two star_masks
+        #create the star mask for the homeworld here, add to the overall star_mask, and the star positions list
+        move_from_bank_to_board(size1, color1, position)
+        move_from_bank_to_board(size2, color2, position+1)
+        return True
+
 
     def move_from_board_to_board(size, color, old_pos, new_pos):
+        #execute the scooch
         return True
 
     def choose_homeworld(star1, star2, ship):
@@ -61,13 +76,25 @@ class homeworlds_board:
             #need to:
             #  zero out the first(farthest right) instance of the piece we're looking for in the board, the color_mask, and the size_mask
             if(player_turn == 1):
-              #  if player one is choosing their homeworld, we want to place the homeworld stars and ship at the 36th, 37th, and 38th bit, respectively
-            #  if player two is choosing their homeworld, we want to place the homeworld stars and ship at the 39th, 40th, and 41st bit, respectively
+                player_turn = 2
+                #move_from_bank_to_board(size1,color1,36,True)
+                #move_from_bank_to_board(size2,color2,37,True) #this needs fixed, can't have the homeworld star mask taking up two star masks!
+                place_homeworld_star(size1, color1, size2, color2, 36)
+                move_from_bank_to_board(size3, color3, 38, False, 0)
+                # if player one is choosing their homeworld, we want to place the homeworld stars and ship at the 36th, 37th, and 38th bit, respectively
+            elif(player_turn == 2):
+                player_turn = 1
+                first_turn = False
+                #move_from_bank_to_board(size1,color1,39,True)
+                #move_from_bank_to_board(size2,color2,40,True) #this needs fixed, can't have the homeworld star mask taking up two star masks!
+                place_homeworld_star(size1, color1, size2, color2, 39)
+                move_from_bank_to_board(size3,color3,41,False,1)
+                # if player two is choosing their homeworld, we want to place the homeworld stars and ship at the 39th, 40th, and 41st bit, respectively
             return True
         else:
+            # the pieces aren't in the bank, somehow?
             return False
 
 
         
 homeworlds = homeworlds_board()
-print("{:b}".format(int(homeworlds.board[0])))
