@@ -90,25 +90,19 @@ class homeworlds_board:
         #last minute validation, will probably check this beforehand
         print(format(self.bank_mask[0],"02x"))
         star1_pos = self.check_bank_for_piece(size1, color1)
-        print(f"Checking for color {color1} and size {size1}")
         if star1_pos != None:
-            print("star1_pos found")
             self.bank_mask[0] = self.bank_mask[0] & ~star1_pos[0]
         else:
             print("star1_pos not found")
         print(format(self.bank_mask[0],"02x"))
         star2_pos = self.check_bank_for_piece(size2, color2)
-        print(f"Checking for color {color2} and size {size2}")
         if star2_pos != None:
-            print("star2_pos found")
             self.bank_mask[0] = self.bank_mask[0] & ~star2_pos[0]
         else:
             print("star2_pos not found")
         print(format(self.bank_mask[0],"02x"))
         ship_pos  = self.check_bank_for_piece(size3, color3)
-        print(f"Checking for color {color3} and size {size3}")
         if ship_pos != None:
-            print("ship_pos found")
             self.bank_mask[0] = self.bank_mask[0] & ~ship_pos[0]
         else:
             print("ship_pos not found")
@@ -132,6 +126,75 @@ class homeworlds_board:
                 self.bank_mask[0] = self.bank_mask[0] | ship_pos
             return False
 
+    def print_board(self):
+        print("bank_mask\t"+format(self.bank_mask[0],"064b"))
+        print("Red\t\t"+format(self.color_mask[0][0],"064b"))
+        print("Green\t\t"+format(self.color_mask[1][0],"064b"))
+        print("Yellow\t\t"+format(self.color_mask[2][0],"064b"))
+        print("Blue\t\t"+format(self.color_mask[3][0],"064b"))
+        print("Size 1\t\t"+format(self.size_mask[0][0],"064b"))
+        print("Size 2\t\t"+format(self.size_mask[1][0],"064b"))
+        print("Size 3\t\t"+format(self.size_mask[2][0],"064b"))
+        print("Player 0\t"+format(self.player_mask[0][0],"064b"))
+        print("Player 1\t"+format(self.player_mask[1][0],"064b"))
+        print("Homeworld\t"+format(self.hw_mask[0],"064b"))
+        print("Star mask\t"+format(self.star_mask[0],"064b"))
+        for i in range(len(self.star_positions)):
+            print(f"At Star {i}\t"+format(self.at_star_mask[i][0],"064b") + " \nStar pos = \t"+format(self.star_positions[i][0],"064b"))
+    #origin and dest are star_IDs (handles homeworlds easily)
+    def move_ship(self,player,origin,ship,dest, sacrifice = False):
+        if(len(self.star_positions) <= dest or origin == dest):
+            print("dest star is either origin, or does not yet exist")
+            return False
+        if sacrifice or not bool(self.color_mask[Color.Yellow][0] & (self.star_positions[origin][0] | (self.at_star_mask[origin][0] & self.player_mask[player][0]))):
+            print(f"star is not yellow and does not contain any yellow owned by player {player}")
+            return False
+        ship_size, ship_color = ship
+        for i in Size:
+            if bool(self.size_mask[i][0] & self.star_positions[origin][0]) and bool(self.size_mask[i][0] & self.star_positions[dest][0]):
+                #at least one star has a size in common, can't move there bro!
+                print("this is an invalid move bc star sizes")
+                return False
+        #can do move, so do
+        #find the ship at the origin
+
+        if not bool(self.at_star_mask[origin][0] & self.player_mask[player][0] & self.color_mask[ship_color][0] & self.size_mask[ship_size][0]):
+            print(f"requested ship does not exist at origin star for player {player}")
+            return False
+
+        search = np.array([0x8000000000000000],dtype=np.uint64)
+        while not (search & self.player_mask[player][0] & self.at_star_mask[origin][0] & self.color_mask[ship_color][0] & self.size_mask[ship_size][0]):
+            search = search >> 1
+        #search holds the position of the first ship of that size & color at the origin star
+        self.at_star_mask[origin][0] = self.at_star_mask[origin][0] & (~search[0])
+        self.at_star_mask[dest][0] = self.at_star_mask[dest][0] | search[0]
+        return True
+
+    def move_ship_to_new_star(self, player, origin, ship, dest, sacrifice=False):
+        size, color = dest
+        star_pos = self.check_bank_for_piece(size,color)
+        if star_pos == None:
+            print("requested star isn't available in the bank")
+            return False
+        self.bank_mask[0] = self.bank_mask[0] & ~star_pos[0]
+        self.star_mask[0] = self.star_mask[0] | star_pos[0]
+        self.star_positions.append(star_pos)
+        #self.at_star_mask[len(self.star_positions)-1] = np.array([0x0000000000000000],dtype=np.uint64)
+        if self.move_ship(player, origin, ship, len(self.star_positions)-1, sacrifice):
+            return True
+        #move didn't work, take down the star that was created
+        self.star_mask[0] = self.star_mask[0] & (~star_pos[0])
+        self.star_positions.pop()
+        return False
+
+    #this wraps a ship_action_move, it will check whether a new star needs to be created, and destroy a star that is empty after the move
+    def move_ship_action(self, origin, ship, dest):
+        return False
+
+    #single instance of a sacrifice move, do not destroy the star after moving away 
+    def sacrifice_move(self, origin, ship, dest):
+        return False
+
 homeworlds = homeworlds_board()
 for color in Color:
     for size in Size: 
@@ -141,18 +204,10 @@ homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), 
 print("player 1 choosing homeworld")
 homeworlds.choose_homeworld(1, (Size.One, Color.Blue), (Size.One, Color.Blue), (Size.One, Color.Blue))
 homeworlds.choose_homeworld(1, (Size.Two, Color.Blue), (Size.Three, Color.Green), (Size.Three, Color.Yellow))
+homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
+homeworlds.move_ship(0, 0, (Size.Three, Color.Red), 1)
+homeworlds.move_ship(1, 1, (Size.Three, Color.Yellow), 0)
+homeworlds.move_ship_to_new_star(1,1,(Size.Three, Color.Yellow), (Size.One, Color.Red))
+homeworlds.move_ship(0, 0, (Size.Three, Color.Yellow), 1)
+homeworlds.print_board()
 
-print("bank_mask\t"+format(homeworlds.bank_mask[0],"064b"))
-print("Red\t\t"+format(homeworlds.color_mask[0][0],"064b"))
-print("Green\t\t"+format(homeworlds.color_mask[1][0],"064b"))
-print("Yellow\t\t"+format(homeworlds.color_mask[2][0],"064b"))
-print("Blue\t\t"+format(homeworlds.color_mask[3][0],"064b"))
-print("Size 1\t\t"+format(homeworlds.size_mask[0][0],"064b"))
-print("Size 2\t\t"+format(homeworlds.size_mask[1][0],"064b"))
-print("Size 3\t\t"+format(homeworlds.size_mask[2][0],"064b"))
-print("Player 1\t"+format(homeworlds.player_mask[0][0],"064b"))
-print("Player 2\t"+format(homeworlds.player_mask[1][0],"064b"))
-print("Homeworld\t"+format(homeworlds.hw_mask[0],"064b"))
-print("Star mask\t"+format(homeworlds.star_mask[0],"064b"))
-for i in range(len(homeworlds.star_positions)):
-    print(f"At Star {i}\t"+format(homeworlds.at_star_mask[i][0],"064b") + " \nStar pos = \t"+format(homeworlds.star_positions[i][0],"064b"))
