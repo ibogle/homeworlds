@@ -186,8 +186,17 @@ class homeworlds_board:
         self.star_mask[0] = self.star_mask[0] & (~star_pos[0])
         self.star_positions.pop()
         return False
-
-    #this wraps a ship_action_move, it will check whether a new star needs to be created, and destroy a star that is empty after the move
+    
+    #return the position of the next available piece of a certain color in the bank for grow actions
+    def get_next_available_piece_in_bank(self,color):
+        search = np.array([0x0000000010000000],dtype=np.uint64)
+        while not (search & self.color_mask[color][0] & self.bank_mask[0]):
+            search = search << 1
+        if bool(search):
+            return search
+        else:
+            return None
+    #this wraps a move action, it will check whether a new star needs to be created, and destroy a star that is empty after the move
     def move_ship_action(self, origin, ship, dest):
         return False
 
