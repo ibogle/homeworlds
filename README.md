@@ -1,29 +1,26 @@
 # homeworlds
 Efficient representation of the tabletop game homeworlds, intended for eventual AI consumption
 
-Uses a bitwise representation packed into two 64-bit integers, with 9 bitmasks to determine appropriate context:
-  - Board state is represented by 72 bits, 36 for the bank, 36 for the playable area.
-  - The player mask determines the owner of ships and homeworlds
-  - The star mask determines which pieces in play are stars; These are the first piece, followed by the ships at the star
-  - The size masks (1,2,3) determine which pieces are which size
-  - The color masks (red,green,blue,yellow) determine which pieces are which color
+Uses a bitwise representation packed into one 64-bit integer:
+  - bank_mask determines if the piece is currently in the bank
+  - size_mask[0-2] determines which size a piece is, and never changes
+  - color_mask[0-3] determines which color a piece is, and never changes
+  - star_mask determines which pieces are stars
+  - player_mask[0-1] determines which pieces belong to which players
+    - stars in general belong to neither player, homeworlds are the exception
+  - at_star_mask[0-17] holds information about which pieces are currently at which star
+    - ids here are translated to the star's piece by using the star_position array
+    - the star is included in this mask, allowing easy checking of whether a player's ship has access to a power at a given star
+ 
 
 TODO, and miscellaneous thoughts:
 
-  - If there are masks for each extant star, it will be easy to form conditionals to test whether actions are possible.
-     The upper-bound for the possible number of stars is 2 + (36-4)/2 = 18, meaning I'd need 18 additional masks for this, potentially.
-     2x the number of masks I currently have. Rough!
+  - Finish implementing moves. Need higher level function for general actions, that executes ship and sacrifice actions.
+    - Ship actions are essentially a special case of sacrifice action. No precondition for losing a ship, and only a single action of any type.
 
-  - The movement rules aren't exactly straightforward to implement from what I have here. I suppose `star_mask & size_mask` can tell
-     _if_ there are valid move actions that can take place, but not where they are, precisely. I need to turn a one-hot binary uint64 into the indicies that are nonzero, sounds annoying to me.
-
-  - Movement means that if a ship at a new star moves to an old one, I need to scooch all newer stars over one to accommodate the new ship. Even worse for multi-yellow sacrifices, but maybe I can process those in serial instead of parallel.
-
-  - Might make sense to keep a count of stars, and star-specific stuff to make it easy to execute the scooch
-
-  - To propose a move is not to make the move, so could it make sense to develop a string-based method for describing moves, and letting the board execute them in the easiest way? For this to work, I'd need to name the stars (at least number them), so that they can be referred to.
-
-  - Sounds like I just need to name the stars from left-to-right, without unique names (the numbers will be context sensitive based on how many stars exist right now).
+  - Checking if a ship of a certain color is present at a star is a generalizable check, should do that to avoid code duplication
+    - return true if a ship owned by player or the star is a certain color, false otherwise
+  
 
 AI notes:
 
@@ -46,3 +43,5 @@ AI notes:
       best_move = cool_ai_thing(moves)
       board = board.execute(best_move)
 ```
+
+  - Because of the amount of possible moves being very large, deep Q learning probably won't work end-to-end. It _could_ work for selecting whether the move should be sacrifice/ship action, and then which type of action should be taken. Then, we can enumerate all possible moves of that type, and use a deep neural net to do board state evaluation based on it playing itself. Changing the weights frequently will probably make learning unstable, so play old vs. changing or something to keep stability, then add the changed weights to the old weights scaled by how many times they won, and the learning rate.

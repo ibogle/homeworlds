@@ -197,12 +197,27 @@ class homeworlds_board:
         else:
             return None
     #this wraps a move action, it will check whether a new star needs to be created, and destroy a star that is empty after the move
-    def move_ship_action(self, origin, ship, dest):
-        return False
+    def move_ship_action(self, player, origin, ship, dest):
+        #if dest is a tuple, create a new star
+        success = False
+        if type(dest) is tuple:
+            success = move_ship_to_new_star(self, player, origin, ship, dest) 
+        #else check if dest & star_mask != 0
+        else:
+            success = move_ship(self,player,origin,ship,dest)
+        
+        if success:
+            if self.at_star_mask[origin][0] & self.star_positions[origin] == self.star_positions[origin]:
+                #this star is empty, remove origin from star_pos, at_star_mask, star_mask, and add it back to the bank_mask
 
+        return success
     #single instance of a sacrifice move, do not destroy the star after moving away 
     def sacrifice_move(self, origin, ship, dest):
         return False
+
+
+def unit_tests():
+    homeworlds = homeworlds_board()
 
 homeworlds = homeworlds_board()
 for color in Color:
