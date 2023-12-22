@@ -216,6 +216,18 @@ class homeworlds_board:
     def sacrifice_move(self, origin, ship, dest):
         return False
 
+    def load_string_state(self,string_state):
+        #index of the current star (0=this is player0's homeworld)
+        idx = 0
+        for star_str in str.split(string_state):
+            #up to the first ';' is player0's ships at a star:
+            
+            #between the first and second ';' is the star:
+            # note idx indicates if we're at the first or last lines(indicating hw)
+
+            #from the second ';' to the end is player1's ships:
+            return False
+
 
 if __name__ == "__main__":
 
