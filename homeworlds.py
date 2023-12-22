@@ -64,7 +64,7 @@ class homeworlds_board:
     #returns binary position of the piece if a piece of size and color is present in the bank, -1 otherwise
     def check_bank_for_piece(self, size,color):
         if bool(self.bank_mask&self.size_mask[size]&self.color_mask[color]):
-            print("found the piece")
+            #print("found the piece")
             #return the position of the piece in the bank
             search = np.array([0x8000000000000000],dtype=np.uint64)
             while not bool(search & self.bank_mask & self.size_mask[size] & self.color_mask[color]):
@@ -81,31 +81,31 @@ class homeworlds_board:
 
     def choose_homeworld(self,player, star1, star2, ship):
         if bool(self.hw_mask[0] & self.player_mask[player]):
-            print(f"Player {player} already has a homeworld")
+            #print(f"Player {player} already has a homeworld")
             return False
         size1, color1 = star1
         size2, color2 = star2
         size3, color3 = ship
 
         #last minute validation, will probably check this beforehand
-        print(format(self.bank_mask[0],"02x"))
+        #print(format(self.bank_mask[0],"02x"))
         star1_pos = self.check_bank_for_piece(size1, color1)
         if star1_pos != None:
             self.bank_mask[0] = self.bank_mask[0] & ~star1_pos[0]
-        else:
-            print("star1_pos not found")
-        print(format(self.bank_mask[0],"02x"))
+        #else:
+            #print("star1_pos not found")
+        #print(format(self.bank_mask[0],"02x"))
         star2_pos = self.check_bank_for_piece(size2, color2)
         if star2_pos != None:
             self.bank_mask[0] = self.bank_mask[0] & ~star2_pos[0]
-        else:
-            print("star2_pos not found")
-        print(format(self.bank_mask[0],"02x"))
+        #else:
+            #print("star2_pos not found")
+        #print(format(self.bank_mask[0],"02x"))
         ship_pos  = self.check_bank_for_piece(size3, color3)
         if ship_pos != None:
             self.bank_mask[0] = self.bank_mask[0] & ~ship_pos[0]
-        else:
-            print("ship_pos not found")
+        #else:
+            #print("ship_pos not found")
         if(star1_pos != None and star2_pos != None and ship_pos != None):
             #change hw_mask, player_mask[player], star_mask, star_positions, and at_star_mask[len(star_positions)+1]
             self.hw_mask[0]          = self.hw_mask[0]          | star1_pos[0] | star2_pos[0]
@@ -116,7 +116,7 @@ class homeworlds_board:
             return True
         else:
             # the pieces aren't in the bank, somehow?
-            print(f"Player {player} requested an invalid start")
+            #print(f"Player {player} requested an invalid start")
             #bank_mask[0] = bank_mask[0] | star1_pos | star2_pos | ship_pos
             if star1_pos != None:
                 self.bank_mask[0] = self.bank_mask[0] | star1_pos
@@ -209,6 +209,7 @@ class homeworlds_board:
         if success:
             if self.at_star_mask[origin][0] & self.star_positions[origin] == self.star_positions[origin]:
                 #this star is empty, remove origin from star_pos, at_star_mask, star_mask, and add it back to the bank_mask
+                print("unimplemented, as yet")
 
         return success
     #single instance of a sacrifice move, do not destroy the star after moving away 
@@ -216,22 +217,21 @@ class homeworlds_board:
         return False
 
 
-def unit_tests():
-    homeworlds = homeworlds_board()
+if __name__ == "__main__":
 
-homeworlds = homeworlds_board()
-for color in Color:
-    for size in Size: 
-        print(f"Color {color}, size {size} is present in bank: {homeworlds.check_bank_for_piece(size, color)}")
-print("player 0 choosing homeworld")
-homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
-print("player 1 choosing homeworld")
-homeworlds.choose_homeworld(1, (Size.One, Color.Blue), (Size.One, Color.Blue), (Size.One, Color.Blue))
-homeworlds.choose_homeworld(1, (Size.Two, Color.Blue), (Size.Three, Color.Green), (Size.Three, Color.Yellow))
-homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
-homeworlds.move_ship(0, 0, (Size.Three, Color.Red), 1)
-homeworlds.move_ship(1, 1, (Size.Three, Color.Yellow), 0)
-homeworlds.move_ship_to_new_star(1,1,(Size.Three, Color.Yellow), (Size.One, Color.Red))
-homeworlds.move_ship(0, 0, (Size.Three, Color.Yellow), 1)
-homeworlds.print_board()
+    homeworlds = homeworlds_board()
+    for color in Color:
+        for size in Size: 
+            print(f"Color {color}, size {size} is present in bank: {homeworlds.check_bank_for_piece(size, color)}")
+    print("player 0 choosing homeworld")
+    homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
+    print("player 1 choosing homeworld")
+    homeworlds.choose_homeworld(1, (Size.One, Color.Blue), (Size.One, Color.Blue), (Size.One, Color.Blue))
+    homeworlds.choose_homeworld(1, (Size.Two, Color.Blue), (Size.Three, Color.Green), (Size.Three, Color.Yellow))
+    homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
+    homeworlds.move_ship(0, 0, (Size.Three, Color.Red), 1)
+    homeworlds.move_ship(1, 1, (Size.Three, Color.Yellow), 0)
+    homeworlds.move_ship_to_new_star(1,1,(Size.Three, Color.Yellow), (Size.One, Color.Red))
+    homeworlds.move_ship(0, 0, (Size.Three, Color.Yellow), 1)
+    homeworlds.print_board()
 
