@@ -219,31 +219,39 @@ class homeworlds_board:
     def load_string_state(self,string_state):
         #index of the current star (0=this is player0's homeworld)
         idx = 0
-        for star_str in str.split(string_state):
+        
+        for star_str in string_state.split():
             #up to the first ';' is player0's ships at a star:
-            
+            player0_ships = star_str[:star_str.find(';')].split(',') 
+            print(f"player 0 ships: {player0_ships}")
             #between the first and second ';' is the star:
+            star_piece_str = star_str[star_str.find(';')+1:star_str.rfind(';')].split(',')
+            print(f"star:{star_piece_str}")
             # note idx indicates if we're at the first or last lines(indicating hw)
-
+            player1_ships = star_str[star_str.rfind(';')+1:].split(',')
+            print(f"player 1 ships: {player1_ships}")
             #from the second ';' to the end is player1's ships:
-            return False
+        return False
 
 
 if __name__ == "__main__":
 
     homeworlds = homeworlds_board()
-    for color in Color:
-        for size in Size: 
-            print(f"Color {color}, size {size} is present in bank: {homeworlds.check_bank_for_piece(size, color)}")
-    print("player 0 choosing homeworld")
-    homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
-    print("player 1 choosing homeworld")
-    homeworlds.choose_homeworld(1, (Size.One, Color.Blue), (Size.One, Color.Blue), (Size.One, Color.Blue))
-    homeworlds.choose_homeworld(1, (Size.Two, Color.Blue), (Size.Three, Color.Green), (Size.Three, Color.Yellow))
-    homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
-    homeworlds.move_ship(0, 0, (Size.Three, Color.Red), 1)
-    homeworlds.move_ship(1, 1, (Size.Three, Color.Yellow), 0)
-    homeworlds.move_ship_to_new_star(1,1,(Size.Three, Color.Yellow), (Size.One, Color.Red))
-    homeworlds.move_ship(0, 0, (Size.Three, Color.Yellow), 1)
+    file = open('test_games/test1.txt')
+    homeworlds.load_string_state(file.read())
     homeworlds.print_board()
+    #for color in Color:
+    #    for size in Size: 
+    #        print(f"Color {color}, size {size} is present in bank: {homeworlds.check_bank_for_piece(size, color)}")
+    #print("player 0 choosing homeworld")
+    #homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
+    #print("player 1 choosing homeworld")
+    #homeworlds.choose_homeworld(1, (Size.One, Color.Blue), (Size.One, Color.Blue), (Size.One, Color.Blue))
+    #homeworlds.choose_homeworld(1, (Size.Two, Color.Blue), (Size.Three, Color.Green), (Size.Three, Color.Yellow))
+    #homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
+    #homeworlds.move_ship(0, 0, (Size.Three, Color.Red), 1)
+    #homeworlds.move_ship(1, 1, (Size.Three, Color.Yellow), 0)
+    #homeworlds.move_ship_to_new_star(1,1,(Size.Three, Color.Yellow), (Size.One, Color.Red))
+    #homeworlds.move_ship(0, 0, (Size.Three, Color.Yellow), 1)
+    #homeworlds.print_board()
 
