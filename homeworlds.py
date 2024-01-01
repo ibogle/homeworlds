@@ -218,9 +218,9 @@ class homeworlds_board:
 
     def load_string_state(self,string_state):
         #index of the current star (0=this is player0's homeworld)
-        idx = 0
         
-        for star_str in string_state.split():
+        for i, star_str in enumerate(string_state.split()):
+            
             #up to the first ';' is player0's ships at a star:
             player0_ships = star_str[:star_str.find(';')].split(',') 
             print(f"player 0 ships: {player0_ships}")
@@ -231,6 +231,49 @@ class homeworlds_board:
             player1_ships = star_str[star_str.rfind(';')+1:].split(',')
             print(f"player 1 ships: {player1_ships}")
             #from the second ';' to the end is player1's ships:
+            if i == 0:
+                print("player 0's homeworld")
+                homeworld_star_1 = []
+                homeworld_star_2 = []
+                #create player0's homeworld
+                color = Color.Red
+                if star_piece_str[0][0] == 'r':
+                    color=Color.Red
+                elif star_piece_str[0][0] == 'b':
+                    color=Color.Blue
+                elif star_piece_str[0][0] == 'g':
+                    color=Color.Green
+                elif star_piece_str[0][0] == 'y':
+                    color=Color.Yellow
+                size = Size.One
+                if star_piece_str[0][1] == '1':
+                    size=Size.One
+                elif star_piece_str[0][1] == '2':
+                    size=Size.Two
+                elif star_piece_str[0][1] == '3':
+                    size=Size.Three
+                homeworld_star_1=(size,color)
+                if star_piece_str[1][0] == 'r':
+                    color=Color.Red
+                elif star_piece_str[1][0] == 'b':
+                    color=Color.Blue
+                elif star_piece_str[1][0] == 'g':
+                    color=Color.Green
+                elif star_piece_str[1][0] == 'y':
+                    color=Color.Yellow
+                if star_piece_str[1][1] == '1':
+                    size=Size.One
+                elif star_piece_str[1][1] == '2':
+                    size=Size.Two
+                elif star_piece_str[1][1] == '3':
+                    size=Size.Three
+                homeworld_star_2=(size,color)
+                #pick homeworld, add ships
+
+
+            elif i == len(string_state.split())-1 :
+                print("player 1's homeworld")
+
         return False
 
 
