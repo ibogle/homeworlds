@@ -14,6 +14,15 @@ class Size(IntEnum):
     One = 0
     Two = 1
     Three = 2
+#these are the only types of moves possible
+#each needs unique arguments and validation.
+class Move(IntEnum):
+    Sacrifice = 0
+    Move = 1
+    Grow = 2
+    Change = 3
+    Capture = 4
+    Catastrophe = 5
 #TODO: use one 64bit int for all board state:
 #          -no explicit board state, pieces conceptually stay put positionally
 #          -bank mask can change to indicate pieces in play
@@ -34,7 +43,6 @@ class homeworlds_board:
                                                                 [0x00003FE000000000],  #yellow
                                                                 [0x0000001FF0000000]], #blue 
                                                                dtype=np.uint64), dtype=np.uint64)
-        self.hw_mask      = np.ndarray((1,),   buffer=np.array( [0x0000000000000000], dtype=np.uint64), dtype=np.uint64)
         self.player_mask  = np.ndarray((2,1),  buffer=np.array([[0x0000000000000000],
                                                                 [0x0000000000000000]], dtype=np.uint64), dtype=np.uint64)
         self.star_mask    = np.ndarray((1,),   buffer=np.array( [0x0000000000000000], dtype=np.uint64), dtype=np.uint64)
@@ -59,72 +67,16 @@ class homeworlds_board:
                                                                 dtype=np.uint64)
         self.players = 2
         self.size_max = 3
-        self.star_positions = []
+        self.stars = 0
 
     #returns binary position of the piece if a piece of size and color is present in the bank, -1 otherwise
     def check_bank_for_piece(self, size,color):
-        if bool(self.bank_mask&self.size_mask[size]&self.color_mask[color]):
-            #print("found the piece")
-            #return the position of the piece in the bank
-            search = np.array([0x8000000000000000],dtype=np.uint64)
-            while not bool(search & self.bank_mask & self.size_mask[size] & self.color_mask[color]):
-                #print("searching...")
-                search = search >> 1
-
+        search = self.bank_mask&self.size_mask[size]&self.color_mask[color]
+        search = ((search >> 1) ^ search) & search
+        if bool(search):
             return search
         else:
             return None
-
-    def count_ones_in_uint64(self,n):#0x0000000000000000              0x0000000000000000
-        uCount = n - ((n >> 1) & 0x0333333333333333) - ((n>>2) & 0x0111111111111111)
-        return ((uCount + (uCount>>3)) & 0x0307070707070707) % 63
-
-    def choose_homeworld(self,player, star1, star2, ship):
-        if bool(self.hw_mask[0] & self.player_mask[player]):
-            #print(f"Player {player} already has a homeworld")
-            return False
-        size1, color1 = star1
-        size2, color2 = star2
-        size3, color3 = ship
-
-        #last minute validation, will probably check this beforehand
-        #print(format(self.bank_mask[0],"02x"))
-        star1_pos = self.check_bank_for_piece(size1, color1)
-        if star1_pos != None:
-            self.bank_mask[0] = self.bank_mask[0] & ~star1_pos[0]
-        #else:
-            #print("star1_pos not found")
-        #print(format(self.bank_mask[0],"02x"))
-        star2_pos = self.check_bank_for_piece(size2, color2)
-        if star2_pos != None:
-            self.bank_mask[0] = self.bank_mask[0] & ~star2_pos[0]
-        #else:
-            #print("star2_pos not found")
-        #print(format(self.bank_mask[0],"02x"))
-        ship_pos  = self.check_bank_for_piece(size3, color3)
-        if ship_pos != None:
-            self.bank_mask[0] = self.bank_mask[0] & ~ship_pos[0]
-        #else:
-            #print("ship_pos not found")
-        if(star1_pos != None and star2_pos != None and ship_pos != None):
-            #change hw_mask, player_mask[player], star_mask, star_positions, and at_star_mask[len(star_positions)+1]
-            self.hw_mask[0]          = self.hw_mask[0]          | star1_pos[0] | star2_pos[0]
-            self.player_mask[player] = self.player_mask[player] | star1_pos[0] | star2_pos[0] | ship_pos[0]
-            self.star_mask[0]        = self.star_mask[0]        | star1_pos[0] | star2_pos[0]
-            self.star_positions.append(star1_pos | star2_pos)
-            self.at_star_mask[len(self.star_positions)-1] = ship_pos[0]
-            return True
-        else:
-            # the pieces aren't in the bank, somehow?
-            #print(f"Player {player} requested an invalid start")
-            #bank_mask[0] = bank_mask[0] | star1_pos | star2_pos | ship_pos
-            if star1_pos != None:
-                self.bank_mask[0] = self.bank_mask[0] | star1_pos
-            if star2_pos != None:
-                self.bank_mask[0] = self.bank_mask[0] | star2_pos
-            if ship_pos != None:
-                self.bank_mask[0] = self.bank_mask[0] | ship_pos
-            return False
 
     def print_board(self):
         print("bank_mask\t"+format(self.bank_mask[0],"064b"))
@@ -137,89 +89,33 @@ class homeworlds_board:
         print("Size 3\t\t"+format(self.size_mask[2][0],"064b"))
         print("Player 0\t"+format(self.player_mask[0][0],"064b"))
         print("Player 1\t"+format(self.player_mask[1][0],"064b"))
-        print("Homeworld\t"+format(self.hw_mask[0],"064b"))
+        #print("Homeworld\t"+format(self.hw_mask[0],"064b"))
         print("Star mask\t"+format(self.star_mask[0],"064b"))
-        for i in range(len(self.star_positions)):
-            print(f"At Star {i}\t"+format(self.at_star_mask[i][0],"064b") + " \nStar pos = \t"+format(self.star_positions[i][0],"064b"))
-    #origin and dest are star_IDs (handles homeworlds easily)
-    def move_ship(self,player,origin,ship,dest, sacrifice = False):
-        if(len(self.star_positions) <= dest or origin == dest):
-            print("dest star is either origin, or does not yet exist")
-            return False
-        if sacrifice or not bool(self.color_mask[Color.Yellow][0] & (self.star_positions[origin][0] | (self.at_star_mask[origin][0] & self.player_mask[player][0]))):
-            print(f"star is not yellow and does not contain any yellow owned by player {player}")
-            return False
-        ship_size, ship_color = ship
-        for i in Size:
-            if bool(self.size_mask[i][0] & self.star_positions[origin][0]) and bool(self.size_mask[i][0] & self.star_positions[dest][0]):
-                #at least one star has a size in common, can't move there bro!
-                print("this is an invalid move bc star sizes")
-                return False
-        #can do move, so do
-        #find the ship at the origin
-
-        if not bool(self.at_star_mask[origin][0] & self.player_mask[player][0] & self.color_mask[ship_color][0] & self.size_mask[ship_size][0]):
-            print(f"requested ship does not exist at origin star for player {player}")
-            return False
-
-        search = np.array([0x8000000000000000],dtype=np.uint64)
-        while not (search & self.player_mask[player][0] & self.at_star_mask[origin][0] & self.color_mask[ship_color][0] & self.size_mask[ship_size][0]):
-            search = search >> 1
-        #search holds the position of the first ship of that size & color at the origin star
-        self.at_star_mask[origin][0] = self.at_star_mask[origin][0] & (~search[0])
-        self.at_star_mask[dest][0] = self.at_star_mask[dest][0] | search[0]
-        return True
-
-    def move_ship_to_new_star(self, player, origin, ship, dest, sacrifice=False):
-        size, color = dest
-        star_pos = self.check_bank_for_piece(size,color)
-        if star_pos == None:
-            print("requested star isn't available in the bank")
-            return False
-        self.bank_mask[0] = self.bank_mask[0] & ~star_pos[0]
-        self.star_mask[0] = self.star_mask[0] | star_pos[0]
-        self.star_positions.append(star_pos)
-        #self.at_star_mask[len(self.star_positions)-1] = np.array([0x0000000000000000],dtype=np.uint64)
-        if self.move_ship(player, origin, ship, len(self.star_positions)-1, sacrifice):
-            return True
-        #move didn't work, take down the star that was created
-        self.star_mask[0] = self.star_mask[0] & (~star_pos[0])
-        self.star_positions.pop()
-        return False
+        #for i in range(len(self.star_positions)):
+        for i in range(self.stars):
+            print(f"At Star {i}\t"+format(self.at_star_mask[i][0],"064b"))
     
     #return the position of the next available piece of a certain color in the bank for grow actions
     def get_next_available_piece_in_bank(self,color):
-        search = np.array([0x0000000010000000],dtype=np.uint64)
-        while not (search & self.color_mask[color][0] & self.bank_mask[0]):
-            search = search << 1
+        search = self.bank_mask & self.size_mask[0] & self.color_mask[color]
+        search = ((search << 1) ^ search) & search
         if bool(search):
             return search
-        else:
-            return None
-    #this wraps a move action, it will check whether a new star needs to be created, and destroy a star that is empty after the move
-    def move_ship_action(self, player, origin, ship, dest):
-        #if dest is a tuple, create a new star
-        success = False
-        if type(dest) is tuple:
-            success = move_ship_to_new_star(self, player, origin, ship, dest) 
-        #else check if dest & star_mask != 0
-        else:
-            success = move_ship(self,player,origin,ship,dest)
-        
-        if success:
-            if self.at_star_mask[origin][0] & self.star_positions[origin] == self.star_positions[origin]:
-                #this star is empty, remove origin from star_pos, at_star_mask, star_mask, and add it back to the bank_mask
-                print("unimplemented, as yet")
 
-        return success
-    #single instance of a sacrifice move, do not destroy the star after moving away 
-    def sacrifice_move(self, origin, ship, dest):
-        return False
+        search = self.bank_mask & self.size_mask[1] & self.color_mask[color]
+        search = ((search << 1) ^ search) & search
+        if bool(search):
+            return search
+
+        search = self.bank_mask & self.size_mask[2] & self.color_mask[color]
+        search = ((search << 1) ^ search) & search
+        if bool(search):
+            return search
+        return None
 
     def string_to_piece(self,piece_str):
         color = Color.Blue
         size = Size.One
-        print(piece_str)
         if piece_str[0] == 'r':
             color = Color.Red
         elif piece_str[0] == 'g':
@@ -232,40 +128,64 @@ class homeworlds_board:
             size = size.Three
         return (color,size)
             
+    def create_star(self,player,stars):
+        for star in stars:
+            star_pos = self.check_bank_for_piece(star[1],star[0])
+            if star_pos == None:
+                print("Listed star piece could not be found in bank, aborting")
+                return False
+            self.bank_mask = self.bank_mask & ~star_pos
+            if not player == None:
+                self.player_mask[player] = self.player_mask[player] | star_pos
+            self.star_mask = self.star_mask | star_pos
+            self.at_star_mask[self.stars] = self.at_star_mask[self.stars] | star_pos
+        self.stars += 1
+        return True
+
+    def create_ship(self, player, star_idx, ship):
+        ship_pos = self.check_bank_for_piece(ship[1],ship[0])
+        if ship_pos == None:
+            print("Listed ship piece could not be found in bank, aborting")
+            return False
+        self.bank_mask = self.bank_mask & ~ship_pos
+        self.player_mask[player] = self.player_mask[player] | ship_pos
+        self.at_star_mask[star_idx] = self.at_star_mask[star_idx] | ship_pos
+        return True
+        
 
     def load_string_state(self,string_state):
         #index of the current star (0=this is player0's homeworld)
-        
         for i, star_str in enumerate(string_state.split()):
-            
             #up to the first ';' is player0's ships at a star:
             player0_ships_str = star_str[:star_str.find(';')].split(',') 
-            print(f"player 0 ship string: {player0_ships_str}")
+            #print(f"player 0 ship string: {player0_ships_str}")
             player0_ships = [self.string_to_piece(x) for x in player0_ships_str if x != '']
-            print(f"player 0 ship array: {player0_ships}")
+            #print(f"player 0 ship array: {player0_ships}")
             #between the first and second ';' is the star:
             star_piece_str = star_str[star_str.find(';')+1:star_str.rfind(';')].split(',')
-            print(f"star:{star_piece_str}")
+            #print(f"star:{star_piece_str}")
             star_piece = [self.string_to_piece(x) for x in star_piece_str if x != '']
-            print(f"star piece: {star_piece}")
+            #print(f"star piece: {star_piece}")
             # note idx indicates if we're at the first or last lines(indicating hw)
             player1_ships_str = star_str[star_str.rfind(';')+1:].split(',')
-            print(f"player 1 ship string: {player1_ships_str}")
+            #print(f"player 1 ship string: {player1_ships_str}")
             player1_ships = [self.string_to_piece(x) for x in player1_ships_str if x != '']
-            print(f"player 1 ship array: {player1_ships}")
-            
-            #create star (maybe homeworld)
-            for star in star_piece:
-                star_pos = self.check_bank_for_piece(star[1],star[0])
-                # star_pos is None if the piece doesn't exist.
+            #print(f"player 1 ship array: {player1_ships}")
+            player = None
 
-            #add ships to the star and player masks
-
-            #from the second ';' to the end is player1's ships:
             if i == 0:
-                print("player 0's homeworld")
-            elif i == len(string_state.split())-1 :
-                print("player 1's homeworld")
+                player = 0
+            elif i == len(string_state.split())-1:
+                player = 1
+
+            self.create_star(player,star_piece)
+                
+            #put ships at stars
+            for ship in player0_ships:
+                self.create_ship(0, i, ship)
+
+            for ship in player1_ships:
+                self.create_ship(1, i, ship)
 
         return False
 
@@ -273,9 +193,11 @@ class homeworlds_board:
 if __name__ == "__main__":
 
     homeworlds = homeworlds_board()
+    print(bin(homeworlds.bank_mask[0]).count('1'))
     file = open('test_games/test1.txt')
     homeworlds.load_string_state(file.read())
     homeworlds.print_board()
+    print(bin(homeworlds.bank_mask[0]).count('1'))
     #for color in Color:
     #    for size in Size: 
     #        print(f"Color {color}, size {size} is present in bank: {homeworlds.check_bank_for_piece(size, color)}")
