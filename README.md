@@ -9,18 +9,28 @@ Uses a bitwise representation packed into one 64-bit integer:
   - player_mask[0-1] determines which pieces belong to which players
     - stars in general belong to neither player, homeworlds are the exception
   - at_star_mask[0-17] holds information about which pieces are currently at which star
-    - ids here are translated to the star's piece by using the star_position array
     - the star is included in this mask, allowing easy checking of whether a player's ship has access to a power at a given star
  
 
 TODO, and miscellaneous thoughts:
 
-  - Finish implementing moves. Need higher level function for general actions, that executes ship and sacrifice actions.
-    - Ship actions are essentially a special case of sacrifice action. No precondition for losing a ship, and only a single action of any type.
+  - Need a move validation and execution framework
+    - All moves are potentially more than one move, catastrophes are generally possible even during ship actions
+    - Validation can ensure a sacrifice happened before multiple moves of that ship's type
+    - Then, just validate and execute the moves in the list, after the sacrifice completes successfully
+    - For human input, the needed piece details would be prompted by the UI and highlighted accordingly
 
-  - Checking if a ship of a certain color is present at a star is a generalizable check, should do that to avoid code duplication
-    - return true if a ship owned by player or the star is a certain color, false otherwise
+  - After validation and execution framework is in place, write unit tests for different move types
+    - moving is probably easiest first, then sacrifice moves, catastrophes
+    - growing, sacrifice grows, catastrophes
+    - transform, sacrifice transformations, catastrophes
+    - captures, sacrifice captures (catastrophes are not possible here, pretty sure)
   
+  - Need to implement catastrophes first, so maybe start with unit testing those.
+    - Catastrophe should take the color and the star at which the catastrophe should occur
+    - Testing should be easy, have several stars with catastrophes, including two at a HW. Most colors should fail at most stars. Two catastrophes can happen in one turn. 
+  
+  - If, as part of your turn, you ask for an invalid move, the validation will reject the entire turn and require you to resubmit. Gotta keep those robots in check.
 
 AI notes:
 

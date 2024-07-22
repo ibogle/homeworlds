@@ -1,5 +1,6 @@
 import numpy as np
 from enum import IntEnum
+import warnings
 #bitmask-based representation of the board state of homeworlds
 #72 bits for total board state, 10 masks for total board state = 720 bits, or 10 pairs of 64 bit integers, a 2x10 uint64 tensor/matrix
 #with only the first 8 bits of the second uint64 being used (annoying, but necessary)
@@ -97,18 +98,8 @@ class homeworlds_board:
     
     #return the position of the next available piece of a certain color in the bank for grow actions
     def get_next_available_piece_in_bank(self,color):
-        search = self.bank_mask & self.size_mask[0] & self.color_mask[color]
-        search = ((search << 1) ^ search) & search
-        if bool(search):
-            return search
-
-        search = self.bank_mask & self.size_mask[1] & self.color_mask[color]
-        search = ((search << 1) ^ search) & search
-        if bool(search):
-            return search
-
-        search = self.bank_mask & self.size_mask[2] & self.color_mask[color]
-        search = ((search << 1) ^ search) & search
+        search = self.bank_mask & (self.size_mask[0]|self.size_mask[1]|self.size_mask[2]) & self.color_mask[color]
+        search = search & -search
         if bool(search):
             return search
         return None
@@ -197,19 +188,5 @@ if __name__ == "__main__":
     file = open('test_games/test1.txt')
     homeworlds.load_string_state(file.read())
     homeworlds.print_board()
-    print(bin(homeworlds.bank_mask[0]).count('1'))
-    #for color in Color:
-    #    for size in Size: 
-    #        print(f"Color {color}, size {size} is present in bank: {homeworlds.check_bank_for_piece(size, color)}")
-    #print("player 0 choosing homeworld")
-    #homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
-    #print("player 1 choosing homeworld")
-    #homeworlds.choose_homeworld(1, (Size.One, Color.Blue), (Size.One, Color.Blue), (Size.One, Color.Blue))
-    #homeworlds.choose_homeworld(1, (Size.Two, Color.Blue), (Size.Three, Color.Green), (Size.Three, Color.Yellow))
-    #homeworlds.choose_homeworld(0, (Size.One, Color.Blue), (Size.Two, Color.Green), (Size.Three, Color.Red))
-    #homeworlds.move_ship(0, 0, (Size.Three, Color.Red), 1)
-    #homeworlds.move_ship(1, 1, (Size.Three, Color.Yellow), 0)
-    #homeworlds.move_ship_to_new_star(1,1,(Size.Three, Color.Yellow), (Size.One, Color.Red))
-    #homeworlds.move_ship(0, 0, (Size.Three, Color.Yellow), 1)
-    #homeworlds.print_board()
-
+    ##use the below code to count number of ones (check catastrophes and such)
+    #print(bin(homeworlds.bank_mask[0]).count("1"))
