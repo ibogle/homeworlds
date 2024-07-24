@@ -17,58 +17,74 @@ class Size(IntEnum):
     Three = 2
 #these are the only types of moves possible
 #each needs unique arguments and validation.
+#Also, importantly, move types are aligned with piece colors, so a given ship action can be checked against a color.
 class Move(IntEnum):
-    Sacrifice = 0
-    Move = 1
-    Grow = 2
-    Change = 3
-    Capture = 4
+    Capture = 0
+    Grow = 1
+    Move = 2
+    Transform = 3
+    #End of ship actions
+    Sacrifice = 4
     Catastrophe = 5
-#TODO: use one 64bit int for all board state:
-#          -no explicit board state, pieces conceptually stay put positionally
-#          -bank mask can change to indicate pieces in play
-#          -size and color masks are constant
-#          -keep star masks and star position list, and player masks
+    Pass = 6
+#TODO
+# implement validation framework:
+#   Takes array of moves and args
+#   Validates: Are these moves possible given the current board state?
+#   returns True if yeah, False if nah
 
 # Pieces do not move, they just change player ownership and star proximity, so only update the player, star, and at_star masks for board state
 class homeworlds_board:
-    def __init__(self):
-        self.bank_mask    = np.ndarray((1,),   buffer=np.array( [0xFFFFFFFFF0000000], dtype=np.uint64), dtype=np.uint64)
+    def __eq__(self, other):
+        return self.bank_mask == other.bank_mask and self.size_mask == other.size_mask and self.color_mask == other.color_mask and self.player_mask == other.player_mask and self.star_mask == other.star_mask and self.at_star_mask == other.at_star_mask and self.players == other.players and self.size_max == other.size_max and self.stars == other.stars
+    def __init__(self, orig=None):
+        if orig == None:
+            self.bank_mask    = np.ndarray((1,),   buffer=np.array( [0xFFFFFFFFF0000000], dtype=np.uint64), dtype=np.uint64)
         
-        self.size_mask    = np.ndarray((3,1),  buffer=np.array([[0x0381C0E070000000],  #size 1
+            self.size_mask    = np.ndarray((3,1),  buffer=np.array([[0x0381C0E070000000],  #size 1
                                                                 [0x1C0E070380000000],  #size 2
                                                                 [0xE070381C00000000]], #size 3
                                                                 dtype=np.uint64), dtype=np.uint64)
-        self.color_mask   = np.ndarray((4,1),  buffer=np.array([[0xFF80000000000000],  #red
+            self.color_mask   = np.ndarray((4,1),  buffer=np.array([[0xFF80000000000000],  #red
                                                                 [0x007FC00000000000],  #green
                                                                 [0x00003FE000000000],  #yellow
                                                                 [0x0000001FF0000000]], #blue 
                                                                dtype=np.uint64), dtype=np.uint64)
-        self.player_mask  = np.ndarray((2,1),  buffer=np.array([[0x0000000000000000],
+            self.player_mask  = np.ndarray((2,1),  buffer=np.array([[0x0000000000000000],
                                                                 [0x0000000000000000]], dtype=np.uint64), dtype=np.uint64)
-        self.star_mask    = np.ndarray((1,),   buffer=np.array( [0x0000000000000000], dtype=np.uint64), dtype=np.uint64)
-        self.at_star_mask = np.ndarray((18,1), buffer=np.array([[0x0000000000000000], #star 0
-                                                                [0x0000000000000000], #star 1
-                                                                [0x0000000000000000], #star 2
-                                                                [0x0000000000000000], #star 3
-                                                                [0x0000000000000000], #star 4
-                                                                [0x0000000000000000], #star 5
-                                                                [0x0000000000000000], #star 6
-                                                                [0x0000000000000000], #star 7
-                                                                [0x0000000000000000], #star 8
-                                                                [0x0000000000000000], #star 9
-                                                                [0x0000000000000000], #star 10
-                                                                [0x0000000000000000], #star 11
-                                                                [0x0000000000000000], #star 12
-                                                                [0x0000000000000000], #star 13
-                                                                [0x0000000000000000], #star 14
-                                                                [0x0000000000000000], #star 15
-                                                                [0x0000000000000000], #star 16
-                                                                [0x0000000000000000]], dtype=np.uint64),#star 17
-                                                                dtype=np.uint64)
-        self.players = 2
-        self.size_max = 3
-        self.stars = 0
+            self.star_mask    = np.ndarray((1,),   buffer=np.array( [0x0000000000000000], dtype=np.uint64), dtype=np.uint64)
+            self.at_star_mask = np.ndarray((18,1), buffer=np.array([[0x0000000000000000], #star 0
+                                                                    [0x0000000000000000], #star 1
+                                                                    [0x0000000000000000], #star 2
+                                                                    [0x0000000000000000], #star 3
+                                                                    [0x0000000000000000], #star 4
+                                                                    [0x0000000000000000], #star 5
+                                                                    [0x0000000000000000], #star 6
+                                                                    [0x0000000000000000], #star 7
+                                                                    [0x0000000000000000], #star 8
+                                                                    [0x0000000000000000], #star 9
+                                                                    [0x0000000000000000], #star 10
+                                                                    [0x0000000000000000], #star 11
+                                                                    [0x0000000000000000], #star 12
+                                                                    [0x0000000000000000], #star 13
+                                                                    [0x0000000000000000], #star 14
+                                                                    [0x0000000000000000], #star 15
+                                                                    [0x0000000000000000], #star 16
+                                                                    [0x0000000000000000]], dtype=np.uint64),#star 17
+                                                                    dtype=np.uint64)
+            self.players = 2
+            self.size_max = 3
+            self.stars = 0
+        else:
+            self.bank_mask = orig.bank_mask
+            self.size_mask = orig.size_mask
+            self.color_mask = orig.color_mask
+            self.player_mask = orig.player_mask
+            self.star_mask = orig.star_mask
+            self.at_star_mask = orig.at_star_mask
+            self.players = orig.players
+            self.size_max = orig.size_max
+            self.stars = orig.stars
 
     #returns binary position of the piece if a piece of size and color is present in the bank, -1 otherwise
     def check_bank_for_piece(self, size,color):
@@ -179,6 +195,79 @@ class homeworlds_board:
                 self.create_ship(1, i, ship)
 
         return False
+    #need some way of checking if the piece sacrificed is valid for the type of action
+    def validate_ship_action(self, move, sacrifice=False):
+        return False
+    #just make sure the piece exists where the player says it does
+    def validate_sacrifice(self, move):
+        return False, Color.Red, Size.One
+    
+    def validate_catastrophe(self,move):
+        #catastrophe move structure:
+        #[Move.Catastrophe, star_idx, color]
+        if len(move) > 3:
+            print("Malformed catastrophe move structure")
+            return False
+
+        pieces_of_target_color = self.at_star_mask[move[1]][0] & self.color_mask[move[2]][0]
+        if bin(pieces_of_target_color).count('1') >=4:
+            return True
+        return False
+
+    #this function simply returns true if the moves proposed were able to be completed
+    # this cannot be separated from executing the moves, as the board state will change due to moves in the turn
+    # create a copy of the current board, try the moves, and return the new board if the moves were valid.
+    def validate_turn(self, moves):
+        #check that a turn has one pass or one sacrifice or one ship action, otherwise it's not a valid turn
+        #checking that the number of actions are correct with the sacrifice is done by trying to execute the moves.
+        move_types = [x for x[0] in moves]
+        move_dict = dict()
+        for move in move_types:
+            if move in move_dict:
+                move_dict[move] = move_dict[move] + 1
+            else:
+                move_dict[move] = 1
+        if Move.Pass in move_dict and (0 in move_dict or 1 in move_dict or 2 in move_dict or 3 in move_dict or 4 in move_dict) :
+            #can't pass and also do something
+            return False, None
+        if move_dict[0] + move_dict[1] + move_dict[2] + move_dict[3] > 1 and not Move.Sacrifice in move_dict:
+            #multiple ship actions without a sacrifice, that's not going to work
+            return False, None
+
+        temp_board = homeworlds_board(self)
+        sacrifice = False
+        sacrifice_color = Color.Red
+        sacrifice_size = Size.One
+        for move in moves:
+            if move[0] == Move.Sacrifice:
+                ret, sacrifice_color, sacrifice_size = temp_board.validate_sacrifice(move)
+                if ret == False:
+                    return False, None
+                #do the action on temp_board
+            elif move[0] == Move.Pass:
+                # check that there isn't a ship action or sacrifice in this set of moves,
+                # if there is, this Pass is invalid
+                continue # a turn with a pass might have catastrophes in it, still have to validate those.
+            elif move[0] == Move.Catastrophe:
+                ret = temp_board.validate_catastrophe(move)
+                if ret == False:
+                    return False, None
+                #do the action on temp_board
+            else:
+                if sacrifice and move[0] == sacrifice_color and sacrifice_size > 0 :
+                    sacrifice_size = sacrifice_size - 1
+                    ret = temp_board.validate_ship_action(move, True)
+                    if ret == False:
+                        return False, None
+                    #do the action on temp_board
+                elif sacrifice == False:
+                    ret = temp_board.validate_ship_action(move)
+                    if ret == False:
+                        return False, None
+                    #do the action on temp_board
+        #set temp_board equal to self
+        return True, temp_board
+    
 
 
 if __name__ == "__main__":
