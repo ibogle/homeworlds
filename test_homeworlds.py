@@ -18,15 +18,42 @@ class TestHomeworldSelection(unittest.TestCase):
         homeworlds = hw.homeworlds_board()
         homeworlds.load_string_state(file.read())
         file.close()
-        #first, test a catastrophe that shouldn't work
+        #This doesn't work because there's not enough yellow at the target star
         move = [hw.Move.Catastrophe, 0, hw.Color.Yellow]
-        self.assertFalse(homeworlds.validate_turn([move]))
-        #second, test each catastrophe that should work
+        ret, tmp_board = homeworlds.validate_turn([move])
+        self.assertFalse(ret)
+        self.assertTrue(tmp_board == None)
+        #This doesn't work because star 4 doesn't exist
+        move = [hw.Move.Catastrophe, 4, hw.Color.Yellow]
+        ret, tmp_board = homeworlds.validate_turn([move])
+        self.assertFalse(ret)
+        self.assertTrue(tmp_board == None)
+        #the last catastrophe doesn't work because it references a star that no longer exists (the star moved up one index) 
+        move = [[Move.Pass],[Move.Catastrophe, 0, Color.Blue],[Move.Catastrophe,0,Color.Green],[Move.Catastrophe,1,Color.Yellow],[Move.Catastrophe,2,Color.Red]]
+        ret, tmp_board = homeworlds.validate_turn(move)
+        self.assertFalse(ret)
+        self.assertTrue(tmp_board == None)
+        #second, test a catastrophe that should work
         move = [hw.Move.Catastrophe, 0, hw.Color.Blue]
-        self.assertTrue(homeworlds.validate_turn([move]))
+        ret, tmp_board = homeworlds.validate_turn([move])
+        self.assertTrue(ret)
+        self.assertFalse(tmp_board == homeworlds)
+        file = open("test_games/catastrophe_test_ans1.txt")
+        answer_board = hw.homeworlds_board()
+        answer_board.load_string_state(file.read())
+        file.close()
+        
+        self.assertTrue(tmp_board == answer_board)
         #third, test that all possible catastrophes can be triggered in the same move
-        turn = [[Move.Catastrophe, 0, Color.Blue],[Move.Catastrophe,0,Color.Green],[Move.Catastrophe,1,Color.Yellow],[Move.Catastrophe, 2, Color.Red]]
-        self.assertTrue(homeworlds.validate_turn(turn))
+        turn = [[Move.Pass],[Move.Catastrophe, 0, Color.Blue],[Move.Catastrophe,0,Color.Green],[Move.Catastrophe,1,Color.Yellow],[Move.Catastrophe, 1, Color.Red]]
+        ret, tmp_board = homeworlds.validate_turn(turn)
+        self.assertTrue(ret)
+        self.assertFalse(tmp_board == homeworlds)
+        file = open("test_games/catastrophe_test_ans2.txt")
+        answer_board = hw.homeworlds_board()
+        answer_board.load_string_state(file.read())
+        file.close()
+        self.assertTrue(tmp_board == answer_board)
 
 
 if __name__ == '__main__':

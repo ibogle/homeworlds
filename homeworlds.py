@@ -1,6 +1,7 @@
 import numpy as np
 from enum import IntEnum
 import warnings
+import copy
 #bitmask-based representation of the board state of homeworlds
 #72 bits for total board state, 10 masks for total board state = 720 bits, or 10 pairs of 64 bit integers, a 2x10 uint64 tensor/matrix
 #with only the first 8 bits of the second uint64 being used (annoying, but necessary)
@@ -36,9 +37,24 @@ class Move(IntEnum):
 # Pieces do not move, they just change player ownership and star proximity, so only update the player, star, and at_star masks for board state
 class homeworlds_board:
     def __eq__(self, other):
-        return self.bank_mask == other.bank_mask and self.size_mask == other.size_mask and self.color_mask == other.color_mask and self.player_mask == other.player_mask and self.star_mask == other.star_mask and self.at_star_mask == other.at_star_mask and self.players == other.players and self.size_max == other.size_max and self.stars == other.stars
+        if self.stars != other.stars:
+            return False
+        for star in range(self.stars):
+            for color in Color:
+                for size in Size:
+                    for player in range(self.players):
+                        #check that all the same amount of pieces are used at each star by each player
+                        if bin(self.at_star_mask[star][0] & self.color_mask[color][0] & self.size_mask[size][0] & self.player_mask[player][0]).count('1') != \
+                           bin(other.at_star_mask[star][0] & other.color_mask[color][0] & other.size_mask[size][0] & other.player_mask[player][0]).count('1'):
+                            return False
+                        #check that the stars are all the same too
+                        if bin(self.at_star_mask[star][0] & self.color_mask[color][0] & self.size_mask[size][0] & self.star_mask[0]).count('1') != \
+                           bin(other.at_star_mask[star][0] & other.color_mask[color][0] & other.size_mask[size][0] & other.star_mask[0]).count('1'):
+                            return False
+
+        return (self.size_mask == other.size_mask).all() and (self.color_mask == other.color_mask).all() and self.players == other.players and self.size_max == other.size_max and self.stars == other.stars
     def __init__(self, orig=None):
-        if orig == None:
+        if orig is None:
             self.bank_mask    = np.ndarray((1,),   buffer=np.array( [0xFFFFFFFFF0000000], dtype=np.uint64), dtype=np.uint64)
         
             self.size_mask    = np.ndarray((3,1),  buffer=np.array([[0x0381C0E070000000],  #size 1
@@ -76,15 +92,15 @@ class homeworlds_board:
             self.size_max = 3
             self.stars = 0
         else:
-            self.bank_mask = orig.bank_mask
-            self.size_mask = orig.size_mask
-            self.color_mask = orig.color_mask
-            self.player_mask = orig.player_mask
-            self.star_mask = orig.star_mask
-            self.at_star_mask = orig.at_star_mask
-            self.players = orig.players
-            self.size_max = orig.size_max
-            self.stars = orig.stars
+            self.bank_mask = copy.deepcopy(orig.bank_mask)
+            self.size_mask = copy.deepcopy(orig.size_mask)
+            self.color_mask = copy.deepcopy(orig.color_mask)
+            self.player_mask = copy.deepcopy(orig.player_mask)
+            self.star_mask = copy.deepcopy(orig.star_mask)
+            self.at_star_mask = copy.deepcopy(orig.at_star_mask)
+            self.players = copy.deepcopy(orig.players)
+            self.size_max = copy.deepcopy(orig.size_max)
+            self.stars = copy.deepcopy(orig.stars)
 
     #returns binary position of the piece if a piece of size and color is present in the bank, -1 otherwise
     def check_bank_for_piece(self, size,color):
@@ -208,11 +224,38 @@ class homeworlds_board:
         if len(move) > 3:
             print("Malformed catastrophe move structure")
             return False
-
+        if move[1] >= self.stars:
+            return False
         pieces_of_target_color = self.at_star_mask[move[1]][0] & self.color_mask[move[2]][0]
         if bin(pieces_of_target_color).count('1') >=4:
             return True
         return False
+    def execute_catastrophe(self,move):
+        #catastrophe move structure:
+        #[Move.Catastrophe, star_idx, color]
+        temp_board = homeworlds_board(self)
+        pieces_of_target_color = temp_board.at_star_mask[move[1]] & temp_board.color_mask[move[2]]
+        #if the last star at a system is destroyed, clear out the star, and put everything back in the bank
+        if bool(temp_board.star_mask & pieces_of_target_color) and bin(temp_board.star_mask[0] & temp_board.at_star_mask[move[1]][0]).count('1') == 1:
+            pieces = temp_board.at_star_mask[move[1]][0]
+            temp_board.bank_mask = temp_board.bank_mask | pieces
+            temp_board.star_mask = temp_board.star_mask & ~(temp_board.star_mask & pieces)
+            temp_board.player_mask[0] = temp_board.player_mask[0] & ~(temp_board.player_mask[0] & pieces)
+            temp_board.player_mask[1] = temp_board.player_mask[1] & ~(temp_board.player_mask[1] & pieces)
+            #temp_board.at_star_mask.remove(temp_board.at_star_mask[move[1]])
+            temp_board.at_star_mask = np.delete(temp_board.at_star_mask,move[1],axis=0)
+            temp_board.stars = temp_board.stars-1
+            temp_board.at_star_mask = np.append(temp_board.at_star_mask,np.array([[0x0000000000000000]],dtype=np.uint64),axis=0)
+        else:
+            temp_board.bank_mask = temp_board.bank_mask | pieces_of_target_color
+            temp_board.star_mask = temp_board.star_mask & ~(temp_board.star_mask & pieces_of_target_color)
+            temp_board.player_mask[0] = temp_board.player_mask[0] & ~(temp_board.player_mask[0] & pieces_of_target_color)
+            temp_board.player_mask[1] = temp_board.player_mask[1] & ~(temp_board.player_mask[1] & pieces_of_target_color)
+            temp_board.at_star_mask[move[1]][0] = temp_board.at_star_mask[move[1]][0] & ~pieces_of_target_color
+
+        return temp_board
+
+
 
     #this function simply returns true if the moves proposed were able to be completed
     # this cannot be separated from executing the moves, as the board state will change due to moves in the turn
@@ -220,7 +263,7 @@ class homeworlds_board:
     def validate_turn(self, moves):
         #check that a turn has one pass or one sacrifice or one ship action, otherwise it's not a valid turn
         #checking that the number of actions are correct with the sacrifice is done by trying to execute the moves.
-        move_types = [x for x[0] in moves]
+        move_types = [x[0] for x in moves]
         move_dict = dict()
         for move in move_types:
             if move in move_dict:
@@ -228,11 +271,18 @@ class homeworlds_board:
             else:
                 move_dict[move] = 1
         if Move.Pass in move_dict and (0 in move_dict or 1 in move_dict or 2 in move_dict or 3 in move_dict or 4 in move_dict) :
-            #can't pass and also do something
+            #can't pass and also do something other than a catastrophe
+            print("rejecting because there's a pass with a ship action")
             return False, None
-        if move_dict[0] + move_dict[1] + move_dict[2] + move_dict[3] > 1 and not Move.Sacrifice in move_dict:
-            #multiple ship actions without a sacrifice, that's not going to work
-            return False, None
+        if not Move.Sacrifice in move_dict:
+            if Move.Move in move_dict and move_dict[Move.Move] > 1:
+                return False, None
+            if Move.Grow in move_dict and move_dict[Move.Grow] > 1:
+                return False, None
+            if Move.Transform in move_dict and move_dict[Move.Transform] > 1:
+                return False, None
+            if Move.Capture in move_dict and move_dict[Move.Capture] > 1:
+                return False, None
 
         temp_board = homeworlds_board(self)
         sacrifice = False
@@ -253,6 +303,7 @@ class homeworlds_board:
                 if ret == False:
                     return False, None
                 #do the action on temp_board
+                temp_board = temp_board.execute_catastrophe(move)
             else:
                 if sacrifice and move[0] == sacrifice_color and sacrifice_size > 0 :
                     sacrifice_size = sacrifice_size - 1
