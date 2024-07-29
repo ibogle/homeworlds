@@ -212,11 +212,46 @@ class homeworlds_board:
 
         return False
     #need some way of checking if the piece sacrificed is valid for the type of action
-    def validate_ship_action(self, move, sacrifice=False):
-        return False
+    def validate_ship_action(self, move):
+        #ship action structure
+        #[Move.Move, target_star_id, target_ship(color, size), dest_star_id]
+        #[Move.Move, target_star_id, target_ship(color, size), dest_star_piece(color, size)]
+        #[Move.Grow, target_star_id, target_ship(color, size)]
+        #[Move.Transform, target_star_id, target_ship(color, size), desired_ship(color, size)]
+        #[Move.Capture, target_star_id, target_ship(color, size), ship_to_capture(color, size)]
+        #check if the right color is there, this should cover moves that aren't discoveries
+        move_type = move[0]
+        ship_is_at_star = bool(self.at_star_mask[move[1]][0] & self.color_mask[move[2][0]][0] & self.size_mask[move[2][1]][0])
+        color_is_at_star = bool(self.at_star_mask[move[1]][0] & self.color_mask[move[0]][0])
+        if not (color_is_at_star and ship_is_at_star):
+            return False
+        
+        #handle discovery moves, check bank for the star we need
+        if move_type == Move.Move and move[3] is tuple:
+            return self.check_bank_for_piece(move[3][1], move[3][0])
+
+        #handle grows, check bank for the color that we want to grow
+        if move_type == Move.Grow:
+            return bool(self.get_next_available_piece_in_bank(move[2][0]) is not None)
+
+        #handle transforms
+        if move_type == Move.Transform:
+            return self.check_bank_for_piece(move[3][1], move[3][0])
+
+        if move_type == Move.Capture:
+            target_is_at_star = bool(self.at_star_mask[move[1]][0] & self.color_mask[move[3][0]][0] & self.size_mask[move[3][1]][0])
+            return target_is_at_star
+
+        return True
     #just make sure the piece exists where the player says it does
     def validate_sacrifice(self, move):
-        return False, Color.Red, Size.One
+        #Sacrifice structure:
+        #[Move.Sacrifice, Target Star, (target piece color, target piece size) [Move.Move, args], ... ]
+        #sacrifice validation is neat, the first step is validate that a piece of the size and color
+        #exists where you want to sacrifice it, the second step is passing the array of moves back through
+        #validation with the sacrificed_ship argument set, then it's just regular move validation.
+
+        return False
     
     def validate_catastrophe(self,move):
         #catastrophe move structure:
@@ -260,7 +295,7 @@ class homeworlds_board:
     #this function simply returns true if the moves proposed were able to be completed
     # this cannot be separated from executing the moves, as the board state will change due to moves in the turn
     # create a copy of the current board, try the moves, and return the new board if the moves were valid.
-    def validate_turn(self, moves):
+    def validate_turn(self, moves, sacrificed_ship):
         #check that a turn has one pass or one sacrifice or one ship action, otherwise it's not a valid turn
         #checking that the number of actions are correct with the sacrifice is done by trying to execute the moves.
         move_types = [x[0] for x in moves]
@@ -285,12 +320,12 @@ class homeworlds_board:
                 return False, None
 
         temp_board = homeworlds_board(self)
-        sacrifice = False
-        sacrifice_color = Color.Red
-        sacrifice_size = Size.One
+        sacrifice = bool(sacrificed_ship is not None)
+        sacrifice_color = sacrificed_ship[0]
+        sacrifice_size = sacrificed_ship[1]
         for move in moves:
             if move[0] == Move.Sacrifice:
-                ret, sacrifice_color, sacrifice_size = temp_board.validate_sacrifice(move)
+                ret = temp_board.validate_sacrifice(move)
                 if ret == False:
                     return False, None
                 #do the action on temp_board
