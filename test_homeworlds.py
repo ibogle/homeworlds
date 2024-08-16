@@ -20,12 +20,12 @@ class TestHomeworldSelection(unittest.TestCase):
         file.close()
         #This doesn't work because there's not enough yellow at the target star
         move = [hw.Move.Catastrophe, 0, hw.Color.Yellow]
-        ret, tmp_board = homeworlds.validate_turn([move])
+        ret, tmp_board = homeworlds.validate_turn([[Move.Pass],move])
         self.assertFalse(ret)
         self.assertTrue(tmp_board == None)
         #This doesn't work because star 4 doesn't exist
         move = [hw.Move.Catastrophe, 4, hw.Color.Yellow]
-        ret, tmp_board = homeworlds.validate_turn([move])
+        ret, tmp_board = homeworlds.validate_turn([[Move.Pass],move])
         self.assertFalse(ret)
         self.assertTrue(tmp_board == None)
         #the last catastrophe doesn't work because it references a star that no longer exists (the star moved up one index) 
@@ -35,7 +35,7 @@ class TestHomeworldSelection(unittest.TestCase):
         self.assertTrue(tmp_board == None)
         #second, test a catastrophe that should work
         move = [hw.Move.Catastrophe, 0, hw.Color.Blue]
-        ret, tmp_board = homeworlds.validate_turn([move])
+        ret, tmp_board = homeworlds.validate_turn([[Move.Pass],move])
         self.assertTrue(ret)
         self.assertFalse(tmp_board == homeworlds)
         file = open("test_games/catastrophe_test_ans1.txt")

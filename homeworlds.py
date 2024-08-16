@@ -25,9 +25,9 @@ class Move(IntEnum):
     Move = 2
     Transform = 3
     #End of ship actions
-    Sacrifice = 4
-    Catastrophe = 5
-    Pass = 6
+    Pass = 4
+    Sacrifice = 5
+    Catastrophe = 6
 #TODO
 # implement validation framework:
 #   Takes array of moves and args
@@ -250,7 +250,8 @@ class homeworlds_board:
         #sacrifice validation is neat, the first step is validate that a piece of the size and color
         #exists where you want to sacrifice it, the second step is passing the array of moves back through
         #validation with the sacrificed_ship argument set, then it's just regular move validation.
-
+        #since sacrifices will validate and pass through new args to the validation function,
+        #no longer need to make sure moves follow sacrifices
         return False
     
     def validate_catastrophe(self,move):
@@ -295,34 +296,54 @@ class homeworlds_board:
     #this function simply returns true if the moves proposed were able to be completed
     # this cannot be separated from executing the moves, as the board state will change due to moves in the turn
     # create a copy of the current board, try the moves, and return the new board if the moves were valid.
-    def validate_turn(self, moves, sacrificed_ship):
+    def validate_turn(self, moves, sacrificed_ship=None):
         #check that a turn has one pass or one sacrifice or one ship action, otherwise it's not a valid turn
         #checking that the number of actions are correct with the sacrifice is done by trying to execute the moves.
-        move_types = [x[0] for x in moves]
-        move_dict = dict()
-        for move in move_types:
-            if move in move_dict:
-                move_dict[move] = move_dict[move] + 1
-            else:
-                move_dict[move] = 1
-        if Move.Pass in move_dict and (0 in move_dict or 1 in move_dict or 2 in move_dict or 3 in move_dict or 4 in move_dict) :
+        #move_types = [x[0] for x in moves]
+        #move_dict = dict()
+        #for move in move_types:
+        #    if move in move_dict:
+        #        move_dict[move] = move_dict[move] + 1
+        #    else:
+        #        move_dict[move] = 1
+        #Valid, mutually exclusive moves are:
+        #  [Move.Pass]
+        #  [Move.Move]
+        #  [Move.Grow]
+        #  [Move.Transform]
+        #  [Move.Capture]
+        #  [Move.Sacrifice, [Moves]]
+        # if sacrifice:
+        #  [1-3 moves of the same type]
+        #catastrophes can happen at any point, so they can be injected into the moves of a sacrifice action, or into
+        #the top-level move list. Removing catastrophes from the move list should result in one of these moves (minus the move list)
+        #uh, maybe, if len([x for x in move if x != Move.Catastrophe]) == 1 that's good. Maybe check the number of the move
+        core_turn = [x for x in moves if x[0] != Move.Catastrophe]
+        sacrifice = bool(sacrificed_ship is not None)
+        if not sacrifice: 
+            if not ((len(core_turn) == 1 and core_turn[0][0] < 5) or (len(core_turn)==2 and core_turn[0] == Move.Sacrifice and isinstance(core_turn[1],list))):
+                return False, None
+        else:
+            filtered_move = [x for x in core_turn if x[0] == sacrificed_ship[0]]
+            if not (len(filtered_move) == len(core_turn) and len(filtered_move) <= sacrificed_ship[1]):
+                return False, None
+        #old bad way of doing the thing
+        #if Move.Pass in move_dict and (0 in move_dict or 1 in move_dict or 2 in move_dict or 3 in move_dict or 4 in move_dict) :
             #can't pass and also do something other than a catastrophe
-            print("rejecting because there's a pass with a ship action")
-            return False, None
-        if not Move.Sacrifice in move_dict:
-            if Move.Move in move_dict and move_dict[Move.Move] > 1:
-                return False, None
-            if Move.Grow in move_dict and move_dict[Move.Grow] > 1:
-                return False, None
-            if Move.Transform in move_dict and move_dict[Move.Transform] > 1:
-                return False, None
-            if Move.Capture in move_dict and move_dict[Move.Capture] > 1:
-                return False, None
+        #    print("rejecting because there's a pass with a ship action")
+        #    return False, None
+        #if not Move.Sacrifice in move_dict:
+        #    if Move.Move in move_dict and move_dict[Move.Move] > 1:
+        #        return False, None
+        #    if Move.Grow in move_dict and move_dict[Move.Grow] > 1:
+        #        return False, None
+        #    if Move.Transform in move_dict and move_dict[Move.Transform] > 1:
+        #        return False, None
+        #    if Move.Capture in move_dict and move_dict[Move.Capture] > 1:
+        #        return False, None
 
         temp_board = homeworlds_board(self)
-        sacrifice = bool(sacrificed_ship is not None)
-        sacrifice_color = sacrificed_ship[0]
-        sacrifice_size = sacrificed_ship[1]
+        
         for move in moves:
             if move[0] == Move.Sacrifice:
                 ret = temp_board.validate_sacrifice(move)
